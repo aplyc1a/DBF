@@ -5,8 +5,8 @@ Simple Distributed BruteForcer for SSH
 **OS system** : Debian/RHEL         
 **Runtime Environment** : python27 with(paramiko)        
 ## Introduction        
-\>  *owner.py*  : the master control program ,which is used to connect zombie_host (read from zombie_file) and create distribute tasks(use password dictionary). owner.py is a simple distributed bruteforcer framework.                       
-\>  *zombie.py* : the child script program, attacker copy zombie.py to zombie_host after connection succeed. zombie.py is a bruteforcer agent, only support SSH cracking this version.               
+\>  *owner.py*  : the master control program, which is used to connect zombie_host (read from zombie_file) and create distribute tasks(use password dictionary). owner.py is a simple distributed bruteforcer framework.                       
+\>  *zombie.py* : the child script program. After connection between zombie_host and C&C_Server is establish, zombie.py will be automatically downloaded. zombie.py is a bruteforcer agent, but only support SSH cracking this version.               
 ## Usage                      
 \#slow mode                  
 python owner.py -H 192.168.0.10 -p 22 -u root -F passwd.lst -Z zombie.lst -T ssh -t 30 -d 10                    
