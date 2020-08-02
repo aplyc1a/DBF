@@ -18,7 +18,8 @@ python owner.py -T ssh://192.168.0.10:22 -u root -F passwd.lst -Z zombie.lst -t 
 eg1: Each zombie works 0.2s interval, totally 100 threads               
 python owner.py -H 192.168.0.10 -p 22 -u root -F passwd.lst -Z zombie.lst -T ssh -t 100 -d 0.2                 
 eg2: Each zombie works 0.01s interval, totally 100 threads                       
-python owner.py -T ftp://192.168.0.10:21 -u ftp -F passwd.lst -Z zombie.lst -T ssh -t 100 -d 0.01      
+python owner.py -T ftp://192.168.0.10:21 -u ftp -F passwd.lst -Z zombie.lst -T ssh -t 100 -d 0.01             
+![usage-1](https://github.com/aplyc1a/ants/blob/develop/usage-1.png)                
 ```text                
 -H <target host>  : Host IP of target.                 
 -p <target_port>  : Port to connect to on the target.                      
