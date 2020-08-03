@@ -16,7 +16,6 @@ python owner.py -H 192.168.0.10 -p 22 -u root -F passwd.lst -Z zombie.lst -S ssh
 eg2: Each zombie works 1min interval, totally 300 threads        
 python owner.py -T ssh://192.168.0.10:22 -u root -F passwd.lst -Z zombie.lst -t 300 -d 60      
             
-![usage-1](https://github.com/aplyc1a/ants/blob/develop/usage-1.png)                
 ```text                
 -H <target host>  : Host IP of target.                 
 -p <target_port>  : Port to connect to on the target.                      
@@ -29,4 +28,6 @@ python owner.py -T ssh://192.168.0.10:22 -u root -F passwd.lst -Z zombie.lst -t 
 -c <interval>     : Defines the minimum wait time in seconds, default 5s. The ants(DBF) use random time interval technology. The actual time interval is 5.0~10.0 seconds.                
 ```                 
 
-                
+![usage-1](https://github.com/aplyc1a/ants/blob/develop/usage-1.png)                      
+![usage-2](https://github.com/aplyc1a/ants/blob/develop/usage-2.png)                     
+![usage-3](https://github.com/aplyc1a/ants/blob/develop/usage-3.png)                                     
