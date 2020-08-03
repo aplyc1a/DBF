@@ -23,7 +23,7 @@ def ftp_connector(host,port,user,password):
     try:
         ftp = FTP()
         # ftp.set_debuglevel(2)
-        ftp.connect(host, port)
+        ftp.connect(host, int(port))
         ftp.login(user, password)
         print ("{successful:%s}" %password)
     except Exception as e:
