@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import optparse
@@ -12,10 +12,10 @@ def ssh_connector(host,port,user,password):
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(host, port, user, password)
-        print "{successful:%s}" %password
+        print ("{successful:%s}" %password)
         
-    except Exception, e:
-        print "{failure:(%s)%s}" % (socket.gethostbyname(socket.gethostname()), str(e)) 
+    except Exception as e:
+        print ("{failure:(%s)%s}" % (socket.gethostbyname(socket.gethostname()), str(e))) 
     finally:
         ssh.close()
 
@@ -25,9 +25,9 @@ def ftp_connector(host,port,user,password):
         # ftp.set_debuglevel(2)
         ftp.connect(host, port)
         ftp.login(user, password)
-        print "{successful:%s}" %password
-    except Exception, e:
-        print "{failure:(%s)%s}" % (socket.gethostbyname(socket.gethostname()), str(e)) 
+        print ("{successful:%s}" %password)
+    except Exception as e:
+        print ("{failure:(%s)%s}" % (socket.gethostbyname(socket.gethostname()), str(e)))
     finally:
         ftp.close()
 def telnet_connector(host,port,user,password):
@@ -45,7 +45,7 @@ def connect_target(target_link, user, passwd):
     if srv in srv_list:
         eval(srv+"_connector")(host, port, user, passwd)
     else:
-        print "{failure:(%s)%s}" % (socket.gethostbyname(socket.gethostname()), "protocol name illegal.") 
+        print ("{failure:(%s)%s}" % (socket.gethostbyname(socket.gethostname()), "protocol name illegal.")) 
 
 def main():
     parser = optparse.OptionParser('usage % prog -T <target_link> -u <user> -P <password>')
@@ -60,7 +60,7 @@ def main():
     passwd=options.passwd
 
     if target_link == None or user == None or passwd == None :
-        print "{%s/?user=%s&passwd=%s}" %(target_link,user,passwd)
+        print ("{%s/?user=%s&passwd=%s}" %(target_link,user,passwd))
         #print parser.usage
         exit(0)
         
