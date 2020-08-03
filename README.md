@@ -3,22 +3,19 @@ Simple Distributed BruteForcer
                   
 ## Requirement         
 **OS system** : Debian/RHEL         
-**Runtime Environment** :                          
-\>  main-host: python27 with lib(paramiko)                                   
-\>  zombie-host: python27 with lib(paramiko, ftplib)      
+**Runtime Environment** :                   
+\>  main-host: python3 with lib(paramiko)               
+\>  zombie-host: python3 with lib(paramiko)      
 ## Introduction        
 \>  *owner.py*  : the master control program ,which is used to connect zombie_host (read from zombie_file) and create distribute tasks(use password dictionary). owner.py is a simple distributed bruteforcer framework.                       
-\>  *zombie.py* : the child script program, attacker copy zombie.py to zombie_host after connection succeed. zombie.py is a bruteforcer agent, only support SSH cracking this version.               
+\>  *zombie.py* : the child script program, attacker copy zombie.py to zombie_host after connection succeed. zombie.py is a bruteforcer agent, support SSH&FTP cracking this version.               
+
 \#slow mode                    
-eg1: Each zombie works 10s interval, totally 30 threads        
-python owner.py -H 192.168.0.10 -p 22 -u root -F passwd.lst -Z zombie.lst -S ssh -t 30 -d 10         
+eg1: Zombie works 1s interval, totally 10 threads        
+python owner.py -H 192.168.0.10 -p 22 -u root -F passwd.lst -Z zombie.lst -S ssh -t 10 -d 1         
 eg2: Each zombie works 1min interval, totally 300 threads        
 python owner.py -T ssh://192.168.0.10:22 -u root -F passwd.lst -Z zombie.lst -t 300 -d 60      
-\#fast mode             
-eg1: Each zombie works 0.2s interval, totally 100 threads               
-python owner.py -H 192.168.0.10 -p 22 -u root -F passwd.lst -Z zombie.lst -T ssh -t 100 -d 0.2                 
-eg2: Each zombie works 0.01s interval, totally 100 threads                       
-python owner.py -T ftp://192.168.0.10:21 -u ftp -F passwd.lst -Z zombie.lst -T ssh -t 100 -d 0.01             
+            
 ![usage-1](https://github.com/aplyc1a/ants/blob/develop/usage-1.png)                
 ```text                
 -H <target host>  : Host IP of target.                 
@@ -32,6 +29,4 @@ python owner.py -T ftp://192.168.0.10:21 -u ftp -F passwd.lst -Z zombie.lst -T s
 -c <interval>     : Defines the minimum wait time in seconds, default 5s. The ants(DBF) use random time interval technology. The actual time interval is 5.0~10.0 seconds.                
 ```                 
 
-Ants(DBF) is only used for educational purposes and complies with the GPL agreement. Any acquisition and use of this tool will be regard as you have understood and agreed to the following rules:                 
-1. Do not use this tool for attack or destructive purposes, in fact this is strongly opposed by the author.                          
-2. Any risk of target property loss or legal issues caused by the use of this tool shall be borne by the user.                        
+                
