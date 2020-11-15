@@ -385,6 +385,7 @@ int32_t ssh_cracker(char *payload, char *result){
         if(verbose||debug) printf("%s",result);
         return 0;
     }
+	(void)snprintf(result,RESULT_MAX_LENGTH,"{error:authentication failure}\n");
     return 1;
 }
 
@@ -616,7 +617,7 @@ int32_t do_task(char *payload, char *result){
 
     if(process(payload, result, p_func[srv_type])){
         if(verbose) printf("[Info] authentication failure!\n");
-        return -1;
+        return -2;
     }
 	printf("---> %s", result);
     //alert types:strange status/ success status.
@@ -644,6 +645,7 @@ static void zombie_handle(void * sock_fd){
     while(1){
 
         memset(data_recv,0,BUFFER_LENGTH);
+		memset(data_send,0,BUFFER_LENGTH);
         i_recvBytes = read(fd,data_recv,BUFFER_LENGTH);
         if(i_recvBytes == 0 || strncmp(data_recv,"quit",4)==0){
             break;
@@ -652,10 +654,13 @@ static void zombie_handle(void * sock_fd){
             fprintf(stderr,"[Err] zombie read error!\n");
             break;
         }
-
+		(void)do_task(data_recv, data_send);
+        send_result(fd, data_send);
+/*
         if(do_task(data_recv, data_send) != -1){
             send_result(fd, data_send);
         }
+*/
 
     }
     //Clear
@@ -769,4 +774,3 @@ int32_t main(int argc, char *argv[]){
     return 0;
 */
 }
-
