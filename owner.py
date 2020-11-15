@@ -99,7 +99,7 @@ def conduct_zombie(target_link, user, password, zombie, release):
     
 
 def check_target_info(options, parser):
-    if options.target_link==None and (options.service_type==None or options.host==None or options.port==None):
+    if options.target_link==None and (options.service_type==None or options.target_host==None or options.target_port==None):
         print ("\033[1;31m[Err]\033[0m Target information incorrect! Check & run again.")
         print (parser.usage)
         exit(1)
@@ -198,3 +198,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
