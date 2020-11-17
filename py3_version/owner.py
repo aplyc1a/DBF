@@ -43,8 +43,9 @@ def check_zombies(zombie_list):
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(zmb_host, 22, zmb_user, zmb_pwd)
-            ssh.exec_command("a=($(ls -a |grep '\.'|awk '{if(length($0)==33) {print $0}}')) && \
-                for i in \"${a[@]}\";do rm -rf \"$i\";done; mkdir -p " + remote_path)
+            ssh.exec_command("a=($(ls -a /tmp|grep '\.'|awk '{if(length($0)==33) {print $0}}')) && \
+                for i in \"${a[@]}\";do rm -rf /tmp/\"$i\";done; mkdir -p " + remote_path)
+            time.sleep(1)
             zombie_scp(ssh, local_file, remote_path + local_file)
             stdin, stdout, stderr = ssh.exec_command("/usr/bin/python3 -c \"import paramiko;from ftplib import FTP\"&& echo \"anything ok!\"")
             if "anything ok!" not in stdout.read().decode():

